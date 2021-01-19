@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Eventbridge Sam Project
+
+Globals:
+  Function:
+    Timeout: 30
+    CodeUri: src/
+    Runtime: python3.8
+
+Resources:
+  DescribeUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: describe_user.main
+      Policies:
+        - arn:aws:iam::aws:policy/IAMReadOnlyAccess
+      Events:
+        API:
+          Type: HttpApi
+          Properties:
+            Path: /describe-user
+            Method: GET
+
+  UpdateUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: update_user.main
+      Policies:
+        - arn:aws:iam::aws:policy/IAMFullAccess
+      Events:
+        UpdateUserRequest:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName: !Ref MyCustomBus
+            Pattern:
+              source:
+                - "TextEndpoint"
+              detail-type:
+                - "update"
+
+  CreateEvent:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: test_endpoint.main
+      Policies:
+        - EventBridgePutEventsPolicy:
+            EventBusName: !Ref MyCustomBus
+      Environment:
+        Variables:
+          EVENT_BUS_NAME: !Ref MyCustomBus
+      Events:
+        API:
+          Type: HttpApi
+          Properties:
+            Path: /
+            Method: POST
+
+  MyCustomBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: MyCustomBus
+
+Outputs:
+  ApiUrl:
+    Description: URL of the API
+    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com"

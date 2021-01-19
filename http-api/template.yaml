@@ -1,0 +1,65 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: HTTP API
+
+Parameters:
+  UserPoolId:
+    Type: String
+    Description: This is where the user pool is located for Cognito
+  Audience:
+    Type: String
+    Description: The Client ID for the user pool
+
+Globals:
+  Function:
+    Timeout: 5
+    Handler: app.main
+    Runtime: python3.8
+
+Resources:
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Auth:
+        Authorizers:
+          UserAuth:
+            AuthorizationScopes:
+              - email
+            IdentitySource: "$request.header.Authorization"
+            JwtConfiguration:
+              issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPoolId}
+              audience:
+                - !Ref Audience
+      CorsConfiguration:
+        AllowMethods:
+          - GET
+        AllowOrigins:
+          - http://localhost:8080
+
+  LambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Events:
+        GetRoot:
+          Type: HttpApi
+          Properties:
+            Path: /
+            Method: get
+            ApiId: !Ref HttpApi
+
+  AdminLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Events:
+        GetRoot:
+          Type: HttpApi
+          Properties:
+            Auth:
+              Authorizer: UserAuth
+              AuthorizationScopes:
+                - !Sub Admins-${Audience}
+            Path: /admin
+            Method: get
+            ApiId: !Ref HttpApi

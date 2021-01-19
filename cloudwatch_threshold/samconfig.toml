@@ -1,0 +1,10 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "insights-app"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-osmyge6x01am"
+s3_prefix = "insights-app"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"

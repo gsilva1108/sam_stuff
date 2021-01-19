@@ -1,0 +1,89 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Template for CloudWatch Alerts Threshold
+
+Globals:
+  Function:
+    CodeUri: src/
+    Runtime: python3.8
+
+Resources:
+  LogGroupForLambda:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: LogGroupForLambda
+
+  LogStreamForLambda:
+    Type: AWS::Logs::LogStream
+    Properties:
+      LogGroupName: !Ref LogGroupForLambda
+      LogStreamName: LogStreamForLambda
+
+  LoggingLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+
+    LoggingLambdaPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: LoggingLambdaPolicy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action: "logs:*"
+            Effect: Allow
+            Resource: "arn:aws:logs:us-east-1:700080211091:*"
+      Roles: 
+        - !Ref LoggingLambdaRole
+
+  InsightQueryLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/CloudWatchLogsReadOnlyAccess"
+
+  LoggingLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: Logging_Lambda
+      Handler: logger.main
+      Timeout: 5
+      Role: !Ref LoggingLambdaRole
+
+  InsightQueryLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: InsightQuery_Lambda
+      Handler: insights.main
+      Timeout: 60
+      Role: !Ref InsightQueryLambdaRole
+
+  DynamoTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      TableName: ClientErrorCounts
+      PrimaryKey:
+        Name: ClientId
+        Type: String
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5

@@ -1,0 +1,11 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "cognitoappstack"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-osmyge6x01am"
+s3_prefix = "cognitoappstack"
+region = "us-east-1"
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "AppName=\"cogstack\" ClientDomains=\"http://localhost:8080\" AdminEmail=\"admin@admin.com\" AddGroupsToScopes=\"true\""
+confirm_changeset = true

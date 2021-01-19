@@ -1,0 +1,9 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "eventbridge-stack"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-osmyge6x01am"
+s3_prefix = "eventbridge-stack"
+region = "us-east-1"
+capabilities = "CAPABILITY_IAM"
