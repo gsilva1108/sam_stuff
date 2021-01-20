@@ -9,13 +9,12 @@ log_streams = ['LogStreamForLambda']
 
 def main(event, context):
     client = boto3.client('logs')
-    query_total_count = -1
 
     for log_group in log_groups:
         for log_stream in log_streams:
 
             start_time = int(
-                (datetime.today() - timedelta(minutes=60)).timestamp())
+                (datetime.today() - timedelta(hours=12)).timestamp())
             end_time = int(datetime.now().timestamp())
 
             query = "fields @timestamp, @message | filter @logStream = 'LogStreamForLambda' | stats count(*) as total by username | sort total desc"
@@ -37,9 +36,13 @@ def main(event, context):
                         queryId=query_id
                     )
 
-                query_total_count = int(response['results'][0][0]['value'])
+                tmp_list = []
+                for user in response['results']:
+                    tmp_dict = {}
+                    tmp_dict[user[0]['value']] = user[1]['value']
+                    tmp_list.append(tmp_dict)
 
-                print(f'Query Total from {log_stream}: {query_total_count}')
+                print(f'Query Total from {log_stream}: {tmp_list}')
 
             except Exception as err:
                 print(err)

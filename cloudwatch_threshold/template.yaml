@@ -32,7 +32,7 @@ Resources:
             Action:
               - "sts:AssumeRole"
 
-    LoggingLambdaPolicy:
+  LoggingLambdaPolicy:
     Type: AWS::IAM::Policy
     Properties:
       PolicyName: LoggingLambdaPolicy
@@ -42,7 +42,7 @@ Resources:
           - Action: "logs:*"
             Effect: Allow
             Resource: "arn:aws:logs:us-east-1:700080211091:*"
-      Roles: 
+      Roles:
         - !Ref LoggingLambdaRole
 
   InsightQueryLambdaRole:
@@ -67,7 +67,7 @@ Resources:
       FunctionName: Logging_Lambda
       Handler: logger.main
       Timeout: 5
-      Role: !Ref LoggingLambdaRole
+      Role: !GetAtt LoggingLambdaRole.Arn
 
   InsightQueryLambda:
     Type: AWS::Serverless::Function
@@ -75,7 +75,7 @@ Resources:
       FunctionName: InsightQuery_Lambda
       Handler: insights.main
       Timeout: 60
-      Role: !Ref InsightQueryLambdaRole
+      Role: !GetAtt InsightQueryLambdaRole.Arn
 
   DynamoTable:
     Type: AWS::Serverless::SimpleTable

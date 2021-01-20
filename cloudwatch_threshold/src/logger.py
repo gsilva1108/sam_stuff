@@ -22,12 +22,13 @@ def send_message(client, logEvents, token=None):
             logStreamName="LogStreamForLambda",
             logEvents=logEvents
         )
-    response = client.put_log_events(
-        logGroupName="LogGroupForLambda",
-        logStreamName="LogStreamForLambda",
-        logEvents=logEvents,
-        sequenceToken=token
-    )
+    else:
+        response = client.put_log_events(
+            logGroupName="LogGroupForLambda",
+            logStreamName="LogStreamForLambda",
+            logEvents=logEvents,
+            sequenceToken=token
+        )
     return response
 
 
