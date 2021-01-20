@@ -8,6 +8,23 @@ Globals:
     Runtime: python3.8
 
 Resources:
+  LoggingLambdaEvent:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: LoggingLambda_Rule
+      Description: Rule to have logger constantly creating logs in LogStreamForLambda
+      ScheduleExpression: rate(4 hours)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt LoggingLambda.Arn
+          Id: Id1337
+          Input: >
+            [
+              { "username": "gsilva", "message": "Find me!" },
+              { "username": "gsilva", "message": "Find me too!" },
+              { "username": "epuerta", "message": "Don't find me!" }
+            ]
+
   LogGroupForLambda:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -76,6 +93,11 @@ Resources:
       Handler: insights.main
       Timeout: 60
       Role: !GetAtt InsightQueryLambdaRole.Arn
+      Environment:
+        Variables:
+          LOG_GROUP: !Ref LogGroupForLambda
+          LOG_STREAM: !Ref LogStreamForLambda
+          DYNAMODB_TABLE: !Ref DynamoTable
 
   DynamoTable:
     Type: AWS::Serverless::SimpleTable

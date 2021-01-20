@@ -1,51 +1,74 @@
 import boto3
 import time
+import os
 
 from datetime import datetime, timedelta
 
-log_groups = ['LogGroupForLambda']
-log_streams = ['LogStreamForLambda']
-
 
 def main(event, context):
-    client = boto3.client('logs')
+    log_group = os.environ['LOG_GROUP']
+    log_stream = os.environ['LOG_STREAM']
+    dynamo_table = os.environ['DYNAMODB_TABLE']
 
-    for log_group in log_groups:
-        for log_stream in log_streams:
+    client_logs = boto3.client('logs')
+    client_db = boto3.resource('dynamodb').Table(dynamo_table)
 
-            start_time = int(
-                (datetime.today() - timedelta(hours=12)).timestamp())
-            end_time = int(datetime.now().timestamp())
+    start_time = int((datetime.today() - timedelta(hours=12)).timestamp())
+    end_time = int(datetime.now().timestamp())
 
-            query = "fields @timestamp, @message | filter @logStream = 'LogStreamForLambda' | stats count(*) as total by username | sort total desc"
+    query = "fields @timestamp, @message | filter @logStream = 'LogStreamForLambda' | stats count(*) as total by username | sort total desc"
 
-            try:
-                start_query_response = client.start_query(
-                    logGroupName=log_group,
-                    startTime=start_time,
-                    endTime=end_time,
-                    queryString=query
-                )
+    try:
+        start_query_response = client_logs.start_query(
+            logGroupName=log_group,
+            startTime=start_time,
+            endTime=end_time,
+            queryString=query
+        )
 
-                query_id = start_query_response['queryId']
-                response = None
+        query_id = start_query_response['queryId']
+        response = None
 
-                while response is None or response['status'] == 'Running':
-                    time.sleep(5)
-                    response = client.get_query_results(
-                        queryId=query_id
-                    )
+        while response is None or response['status'] == 'Running':
+            time.sleep(5)
+            response = client_logs.get_query_results(
+                queryId=query_id
+            )
 
-                tmp_list = []
-                for user in response['results']:
-                    tmp_dict = {}
-                    tmp_dict[user[0]['value']] = user[1]['value']
-                    tmp_list.append(tmp_dict)
+        usercount_list = []
+        for user in response['results']:
+            tmp_dict = {}
+            tmp_dict[user[0]['value']] = user[1]['value']
+            usercount_list.append(tmp_dict)
 
-                print(f'Query Total from {log_stream}: {tmp_list}')
+        print(f'Query Total from {log_stream}: {usercount_list}')
 
-            except Exception as err:
-                print(err)
-                return {
-                    'statusCode': 500
+    except Exception as err:
+        print(f"Error occurred while running query: {err}")
+        return {
+            'statusCode': 500,
+            'error': f"Error occurred while running query: {err}"
+        }
+
+    try:
+        table_items = client_db.scan(Select='ALL_ATTRIBUTES')
+        dynamo_list = []
+        for item in table_items:
+            if item in usercount_list:
+                continue
+            dynamo_list.append(item)
+
+        for user in dynamo_list:
+            client_db.put_item(
+                Item={
+                    "ClientId": user.get("username"),
+                    "TotalErrors": user.get("total")
                 }
+            )
+
+    except Exception as err:
+        print(f"Error adding item to DynamoDB: {err}")
+        return {
+            "statusCode": 500,
+            "error": f"Error adding item to DynamoDB: {err}"
+        }
