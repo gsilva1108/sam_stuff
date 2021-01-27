@@ -4,16 +4,17 @@ Description: Template for CloudWatch Alerts Threshold
 
 Globals:
   Function:
-    CodeUri: src/
     Runtime: python3.8
 
 Resources:
+  # # # # # # # # CLOUDWATCH ITEMS # # # # # # # #
+  # EVENTS
   LoggingLambdaEvent:
     Type: AWS::Events::Rule
     Properties:
       Name: LoggingLambda_Rule
       Description: Rule to have logger constantly creating logs in LogStreamForLambda
-      ScheduleExpression: rate(4 hours)
+      ScheduleExpression: cron(/5 * ?* * * *)
       State: ENABLED
       Targets:
         - Arn: !GetAtt LoggingLambda.Arn
@@ -24,18 +25,62 @@ Resources:
               { "username": "gsilva", "message": "Find me too!" },
               { "username": "epuerta", "message": "Don't find me!" }
             ]
+  InsightQueryLambdaEvent:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: InsightQueryLambda_Rule
+      Description: Rule to have query constantly scan logs in LogStreamForLambda
+      ScheduleExpression: cron(/10 * ?* * * *)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt InsightQueryLambda.Arn
+          Id: Id1338
+  DeleteItemsLambdaEvent:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: DeleteItemsLambda_Rule
+      Description: Rule to have delete items in DynamoDB table
+      ScheduleExpression: cron(/1 * * ?* * *)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt DeleteItemsLambda.Arn
+          Id: Id1339
 
+  # EVENT PERMISSIONS
+  LoggingLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !Ref LoggingLambda
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt LoggingLambdaEvent.Arn
+  InsightQueryLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !Ref InsightQueryLambda
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt InsightQueryLambdaEvent.Arn
+  DeleteItemsLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !Ref DeleteItemsLambda
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt DeleteItemsLambdaEvent.Arn
+
+  # LOG GROUP/STREAM
   LogGroupForLambda:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: LogGroupForLambda
-
   LogStreamForLambda:
     Type: AWS::Logs::LogStream
     Properties:
       LogGroupName: !Ref LogGroupForLambda
       LogStreamName: LogStreamForLambda
-
+  # # # # # # # # IAM ITEMS # # # # # # # #
+  # ROLES
   LoggingLambdaRole:
     Type: AWS::IAM::Role
     Properties:
@@ -48,20 +93,14 @@ Resources:
                 - lambda.amazonaws.com
             Action:
               - "sts:AssumeRole"
-
-  LoggingLambdaPolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: LoggingLambdaPolicy
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Action: "logs:*"
-            Effect: Allow
-            Resource: "arn:aws:logs:us-east-1:700080211091:*"
-      Roles:
-        - !Ref LoggingLambdaRole
-
+      Policies:
+        - PolicyName: LoggingLambdaPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: "logs:*"
+                Resource: "arn:aws:logs:us-east-1:700080211091:*"
   InsightQueryLambdaRole:
     Type: AWS::IAM::Role
     Properties:
@@ -77,18 +116,53 @@ Resources:
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
         - "arn:aws:iam::aws:policy/CloudWatchLogsReadOnlyAccess"
-
+      Policies:
+        - PolicyName: DynamoUpdateAccess
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:Scan
+                  - dynamodb:DescribeTable
+                  - dynamodb:PutItem
+                Resource: !GetAtt DynamoTable.Arn
+  DeleteItemsLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+        - PolicyName: DynamoDeleteAccess
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:Scan
+                  - dynamodb:DeleteItem
+                Resource: !GetAtt DynamoTable.Arn
+  # # # # # # # # LAMBDA ITEMS # # # # # # # #
+  # FUNCTIONS
   LoggingLambda:
     Type: AWS::Serverless::Function
     Properties:
+      CodeUri: src/logger/
       FunctionName: Logging_Lambda
       Handler: logger.main
       Timeout: 5
       Role: !GetAtt LoggingLambdaRole.Arn
-
   InsightQueryLambda:
     Type: AWS::Serverless::Function
     Properties:
+      CodeUri: src/insights/
       FunctionName: InsightQuery_Lambda
       Handler: insights.main
       Timeout: 60
@@ -98,13 +172,26 @@ Resources:
           LOG_GROUP: !Ref LogGroupForLambda
           LOG_STREAM: !Ref LogStreamForLambda
           DYNAMODB_TABLE: !Ref DynamoTable
-
+          SNS_TOPIC: "arn:aws:sns:us-east-1:700080211091:email_to_me"
+  DeleteItemsLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/delete
+      FunctionName: DeleteItems_Lambda
+      Handler: delete_items.main
+      Timeout: 10
+      Role: !GetAtt DeleteItemsLambdaRole.Arn
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref DynamoTable
+  # # # # # # # # DYNAMODB ITEMS # # # # # # # #
+  # TABLES
   DynamoTable:
     Type: AWS::Serverless::SimpleTable
     Properties:
       TableName: ClientErrorCounts
       PrimaryKey:
-        Name: ClientId
+        Name: username
         Type: String
       ProvisionedThroughput:
         ReadCapacityUnits: 5
