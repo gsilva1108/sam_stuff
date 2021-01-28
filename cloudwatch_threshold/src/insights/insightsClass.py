@@ -4,7 +4,7 @@ import os
 import json
 import logging
 
-from queryHandler import QueryHandler
+from util.queryHandler import QueryHandler
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)

@@ -62,8 +62,8 @@ def main(event, context):
         usercount_list = []
         for user in response['results']:
             tmp_dict = {}
-            tmp_dict[user[0]['field']] = user[0]['value']
-            tmp_dict[user[1]['field']] = user[1]['value']
+            tmp_dict[user[0]['field']] = user[0]['value'] # "username": username
+            tmp_dict[user[1]['field']] = user[1]['value'] # "total": total
             usercount_list.append(tmp_dict)
 
         print(f'Query Total from {log_stream}: {usercount_list}')
