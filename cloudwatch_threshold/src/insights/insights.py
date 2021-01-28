@@ -5,25 +5,26 @@ import os
 from datetime import datetime, timedelta
 
 
-def put_item(client_db, user):
+def put_item(client_db, username, total, alarm_sent="false"):
     response = client_db.put_item(
         Item={
-            "username": user["username"],
-            "total": user["total"],
-            "alarm_sent": "false"
+            "username": username,
+            "total": total,
+            "alarm_sent": alarm_sent
         }
     )
     return response
 
 
-def send_sns(client_sns, username, total, log_group, log_stream):
+def send_sns(client_sns, sns_topic, username, total, log_group, log_stream):
     alert_message = f"ClientId: {username}\nTotalErrors: {str(total)}"
-    client_sns.publish(
+    response = client_sns.publish(
         TopicArn=sns_topic,
-        Message=message
+        Message=alert_message,
         Subject="Client '{}' Surpassed Threshold in {}/{}".format(
             username, log_group, log_stream)
     )
+    return response
 
 
 def main(event, context):
@@ -75,32 +76,33 @@ def main(event, context):
         }
 
     try:
+        alarm_sent = "true"
         table_items = client_db.scan()
         if not table_items['Items']:
             for user in usercount_list:
-                response = put_item(client_db, user)
+                if int(user['total']) < 12:
+                    response = put_item(
+                        client_db, user['username'], user['total'])
+                else:
+                    send_sns(client_sns, sns_topic, user['username'],
+                             str(user['total']), log_group, log_stream)
+                    response = put_item(
+                        client_db, user['username'], user['total'], alarm_sent)
         else:
             for user in usercount_list:
                 for item in table_items['Items']:
+                    new_total = int(user['total']) + int(item['total'])
                     if user['username'] == item['username'] and item['alarm_sent'] == 'false':
-                        new_total = int(user['total']) + int(item['total'])
-                        if new_total > 12:
-                            send_sns(client_sns, user['username'], str(
-                                new_total), log_group, log_stream)
-                            new_item = {
-                                "username": user['username'],
-                                "total": str(new_total),
-                                "alarm_sent": "true"
-                            }
-                            put_item(client_db, new_item)
+                        if new_total < 12:
+                            put_item(client_db, user['username'], new_total)
+                        else:
+                            send_sns(client_sns, sns_topic, user['username'],
+                                     str(new_total), log_group, log_stream)
+                            put_item(
+                                client_db, user['username'], new_total, alarm_sent)
                     elif user['username'] == item['username'] and item['alarm_sent'] == 'true':
-                        new_total = int(user['total']) + int(item['total'])
-                        new_item = {
-                            "username": user['username'],
-                            "total": str(new_total),
-                            "alarm_sent": "true"
-                        }
-                        put_item(client_db, new_item)
+                        put_item(
+                            client_db, user['username'], new_total, alarm_sent)
     except Exception as err:
         print(f"Error adding item to DynamoDB: {err}")
         return {

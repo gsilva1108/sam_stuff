@@ -121,12 +121,18 @@ Resources:
           PolicyDocument:
             Version: 2012-10-17
             Statement:
-              - Effect: Allow
+              - Sid: DynamoActions
+                Effect: Allow
                 Action:
                   - dynamodb:Scan
                   - dynamodb:DescribeTable
                   - dynamodb:PutItem
                 Resource: !GetAtt DynamoTable.Arn
+              - Sid: SnsActions
+                Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: "arn:aws:sns:us-east-1:700080211091:email_to_me"
   DeleteItemsLambdaRole:
     Type: AWS::IAM::Role
     Properties:
@@ -139,6 +145,8 @@ Resources:
                 - lambda.amazonaws.com
             Action:
               - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
       Policies:
         - PolicyName: DynamoDeleteAccess
           PolicyDocument:
