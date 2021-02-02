@@ -11,6 +11,19 @@ logger.setLevel(logging.DEBUG)
 
 
 def add_to_dynamo(query_handler, query, user, total, threshold, sns_topic):
+    """
+    This method creates the  item for DynamoDB (message),
+    and takes the information from 'query_to_stream'.  It
+    checks to see if the user already exists in the table
+    and if an alert for meeting the threshold was already 
+    sent. If the threshold is met, an email will be sent
+    to the SNS Topic. If the alert was already sent, 
+    continue to update the 'total' value, but don't send 
+    the alert.
+
+    Args: Class object,   JSON information,   user info,
+          user total, threshold for the query, SNS Topic
+    """
     message = query_handler.get_message(
         query['query_name'], user['username'], total, threshold
     )
@@ -40,6 +53,16 @@ def add_to_dynamo(query_handler, query, user, total, threshold, sns_topic):
 
 
 def insights_query(query_handler):
+    """
+    This method does the insight query  based on  the
+    log  group  and  log stream provided, and get the 
+    usernames  as  well  as  the total amount of logs
+    that the user has within the log group/log stream
+
+    Args:      Class object
+    Returns:  'usercount_list' as a list of users and
+               their total log count.
+    """
     start_time = int((datetime.today() - timedelta(hours=1)).timestamp())
     end_time = int(datetime.now().timestamp())
 
@@ -83,6 +106,13 @@ def insights_query(query_handler):
 
 
 def query_to_stream(query_handler, query, sns_topic):
+    """
+    This will call 'insights_query' to get the user list,
+    and for each user, it will input the arguments passed
+    into this method, and send it to 'add_to_dynamo'
+
+    Args: Class object, JSON information, and SNS Topic.  
+    """
     usercount_list = insights_query(query_handler)
 
     try:
@@ -104,10 +134,10 @@ def query_to_stream(query_handler, query, sns_topic):
                 )
 
     except Exception as err:
-        logger.error(f"Error adding item to DynamoDB: {err}")
+        logger.error(f"Error moving information to 'add_to_dynamo': {err}")
         return {
             "statusCode": 500,
-            "error": f"Error adding item to DynamoDB: {err}"
+            "error": f"Error moving information to 'add_to_dynamo': {err}"
         }
 
 
@@ -115,9 +145,10 @@ def main(event, context):
     sns_topic = os.environ['SNS_TOPIC']
 
     with open('utils/personal.json', 'r') as f:
+        # JSON with all the Log Groups, Log Streams and queries
         data = json.load(f)
 
-    for queries in data.values():
+    for queries in data.values():  # Retrieves the information required for the handler
         try:
             for i in range(len(queries)):
                 query = queries[i]
@@ -128,8 +159,9 @@ def main(event, context):
                 query_to_stream(query_handler, query, sns_topic)
 
         except Exception as err:
-            logger.error(f"Error adding item to DynamoDB: {err}")
+            logger.error(
+                f"Error moving information to 'query_to_stream': {err}")
             return {
                 "statusCode": 500,
-                "error": f"Error adding item to DynamoDB: {err}"
+                "error": f"Error moving information to 'query_to_stream': {err}"
             }
