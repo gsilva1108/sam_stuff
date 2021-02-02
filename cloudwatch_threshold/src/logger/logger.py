@@ -4,9 +4,9 @@ import json
 from datetime import datetime
 
 
-def get_sequence_id(client):
+def get_sequence_id(client, log_group):
     response = client.describe_log_streams(
-        logGroupName='LogGroupForLambda',
+        logGroupName=log_group,
         logStreamNamePrefix='LogStreamForLambda'
     )
     try:
@@ -15,17 +15,17 @@ def get_sequence_id(client):
         return None
 
 
-def send_message(client, logEvents, token=None):
+def send_message(client, log_group, logEvents, token=None):
     if token is None:
         response = client.put_log_events(
-            logGroupName="LogGroupForLambda",
-            logStreamName="LogStreamForLambda",
+            logGroupName=log_group,
+            logStreamName='LogStreamForLambda',
             logEvents=logEvents
         )
     else:
         response = client.put_log_events(
-            logGroupName="LogGroupForLambda",
-            logStreamName="LogStreamForLambda",
+            logGroupName=log_group,
+            logStreamName='LogStreamForLambda',
             logEvents=logEvents,
             sequenceToken=token
         )
@@ -34,21 +34,15 @@ def send_message(client, logEvents, token=None):
 
 def main(event, context):
     client = boto3.client('logs')
-    token = get_sequence_id(client)
+    logEvents = []
 
-    logEvents = [
-        {
+    for i in range(len(event['logs'])):
+        message = {
             "timestamp": int(datetime.now().timestamp() * 1000),
-            "message": json.dumps(event[0])
-        },
-        {
-            "timestamp": int(datetime.now().timestamp() * 1000),
-            "message": json.dumps(event[1])
-        },
-        {
-            "timestamp": int(datetime.now().timestamp() * 1000),
-            "message": json.dumps(event[2])
+            "message": json.dumps(event['logs'][i])
         }
-    ]
+        logEvents.append(message)
 
-    return send_message(client, logEvents, token)
+    for group in event['log_groups']:
+        token = get_sequence_id(client, group)
+        send_message(client, group, logEvents, token)

@@ -20,11 +20,17 @@ Resources:
         - Arn: !GetAtt LoggingLambda.Arn
           Id: Id1337
           Input: >
-            [
-              { "username": "gsilva", "message": "Find me!" },
-              { "username": "gsilva", "message": "Find me too!" },
-              { "username": "epuerta", "message": "Don't find me!" }
-            ]
+            {
+              "logs": [
+                { "username": "gsilva", "message": "Find me!" },
+                { "username": "gsilva", "message": "Find me too!" },
+                { "username": "epuerta", "message": "Don't find me!" }
+              ],
+              "log_groups": [
+                "LogGroupForLambda1",
+                "LogGroupForLambda2"
+              ]
+            }
   InsightQueryLambdaEvent:
     Type: AWS::Events::Rule
     Properties:
@@ -70,14 +76,23 @@ Resources:
       SourceArn: !GetAtt DeleteItemsLambdaEvent.Arn
 
   # LOG GROUP/STREAM
-  LogGroupForLambda:
+  LogGroupForLambda1:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: LogGroupForLambda
-  LogStreamForLambda:
+      LogGroupName: LogGroupForLambda1
+  LogGroupForLambda2:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: LogGroupForLambda2
+  LogStreamForLambda1:
     Type: AWS::Logs::LogStream
     Properties:
-      LogGroupName: !Ref LogGroupForLambda
+      LogGroupName: !Ref LogGroupForLambda1
+      LogStreamName: LogStreamForLambda
+  LogStreamForLambda2:
+    Type: AWS::Logs::LogStream
+    Properties:
+      LogGroupName: !Ref LogGroupForLambda2
       LogStreamName: LogStreamForLambda
   # # # # # # # # IAM ITEMS # # # # # # # #
   # ROLES
@@ -124,7 +139,7 @@ Resources:
               - Sid: DynamoActions
                 Effect: Allow
                 Action:
-                  - dynamodb:Scan
+                  - dynamodb:Query
                   - dynamodb:DescribeTable
                   - dynamodb:PutItem
                 Resource: !GetAtt DynamoTable.Arn
@@ -177,8 +192,6 @@ Resources:
       Role: !GetAtt InsightQueryLambdaRole.Arn
       Environment:
         Variables:
-          LOG_GROUP: !Ref LogGroupForLambda
-          LOG_STREAM: !Ref LogStreamForLambda
           DYNAMODB_TABLE: !Ref DynamoTable
           SNS_TOPIC: "arn:aws:sns:us-east-1:700080211091:email_to_me"
   DeleteItemsLambda:
@@ -195,12 +208,19 @@ Resources:
   # # # # # # # # DYNAMODB ITEMS # # # # # # # #
   # TABLES
   DynamoTable:
-    Type: AWS::Serverless::SimpleTable
+    Type: AWS::DynamoDB::Table
     Properties:
       TableName: ClientErrorCounts
-      PrimaryKey:
-        Name: username
-        Type: String
+      AttributeDefinitions:
+        - AttributeName: username
+          AttributeType: S
+        - AttributeName: query_name
+          AttributeType: S
+      KeySchema:
+        - AttributeName: username
+          KeyType: HASH
+        - AttributeName: query_name
+          KeyType: RANGE
       ProvisionedThroughput:
         ReadCapacityUnits: 5
         WriteCapacityUnits: 5

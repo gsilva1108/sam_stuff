@@ -1,53 +1,55 @@
-import boto3
 import time
 import os
+import json
+import logging
 
+from utils.queryHandler import QueryHandler
 from datetime import datetime, timedelta
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
-def put_item(client_db, username, total, alarm_sent="false"):
-    response = client_db.put_item(
-        Item={
-            "username": username,
-            "total": total,
-            "alarm_sent": alarm_sent
-        }
+
+def add_to_dynamo(query_handler, query, user, total, threshold, sns_topic):
+    message = query_handler.get_message(
+        query['query_name'], user['username'], total, threshold
     )
-    return response
+    if not query_handler.threshold_check(int(total)):
+        query_handler.put_item(message)
+    else:
+        try:
+            message['alarm_sent'] = True
+            if user['alarm_sent']:
+                query_handler.put_item(message)
+            elif not user['alarm_sent']:
+                query_handler.send_sns(
+                    sns_topic, user['username'],
+                    total, query_handler.log_group,
+                    query_handler.log_stream
+                )
+                query_handler.put_item(message)
+        except KeyError:
+            query_handler.send_sns(
+                sns_topic, user['username'],
+                total, query_handler.log_group,
+                query_handler.log_stream
+            )
+            query_handler.put_item(message)
+        except Exception as err:
+            logger.error(f"Error adding item to Dynamo: {err}")
 
 
-def send_sns(client_sns, sns_topic, username, total, log_group, log_stream):
-    alert_message = f"ClientId: {username}\nTotalErrors: {str(total)}"
-    response = client_sns.publish(
-        TopicArn=sns_topic,
-        Message=alert_message,
-        Subject="Client '{}' Surpassed Threshold in {}/{}".format(
-            username, log_group, log_stream)
-    )
-    return response
-
-
-def main(event, context):
-    log_group = os.environ['LOG_GROUP']
-    log_stream = os.environ['LOG_STREAM']
-    dynamo_table = os.environ['DYNAMODB_TABLE']
-    sns_topic = os.environ['SNS_TOPIC']
-
-    client_logs = boto3.client('logs')
-    client_db = boto3.resource('dynamodb').Table(dynamo_table)
-    client_sns = boto3.client('sns')
-
+def insights_query(query_handler):
     start_time = int((datetime.today() - timedelta(hours=1)).timestamp())
     end_time = int(datetime.now().timestamp())
 
-    query = "fields @timestamp, @message | filter @logStream = 'LogStreamForLambda' | stats count(*) as total by username | sort total desc"
-
     try:
+        client_logs = query_handler.client_logs
         start_query_response = client_logs.start_query(
-            logGroupName=log_group,
+            logGroupName=query_handler.log_group,
             startTime=start_time,
             endTime=end_time,
-            queryString=query
+            queryString=query_handler.query
         )
 
         query_id = start_query_response['queryId']
@@ -58,54 +60,76 @@ def main(event, context):
             response = client_logs.get_query_results(
                 queryId=query_id
             )
+        logger.info(f"Query completed. Query ID: {query_id}")
 
         usercount_list = []
         for user in response['results']:
             tmp_dict = {}
-            tmp_dict[user[0]['field']] = user[0]['value'] # "username": username
-            tmp_dict[user[1]['field']] = user[1]['value'] # "total": total
+            tmp_dict[user[0]['field']] = user[0]['value']
+            tmp_dict[user[1]['field']] = user[1]['value']
             usercount_list.append(tmp_dict)
 
-        print(f'Query Total from {log_stream}: {usercount_list}')
+        logger.info(
+            f'Query Total from {query_handler.log_stream}: {usercount_list}'
+        )
+        return usercount_list
 
     except Exception as err:
-        print(f"Error occurred while running query: {err}")
+        logger.error(f"Error occurred while running query: {err}")
         return {
             'statusCode': 500,
             'error': f"Error occurred while running query: {err}"
         }
 
+
+def query_to_stream(query_handler, query, sns_topic):
+    usercount_list = insights_query(query_handler)
+
     try:
-        alarm_sent = "true"
-        table_items = client_db.scan()
-        if not table_items['Items']:
-            for user in usercount_list:
-                if int(user['total']) < 12:
-                    response = put_item(
-                        client_db, user['username'], user['total'])
-                else:
-                    send_sns(client_sns, sns_topic, user['username'],
-                             str(user['total']), log_group, log_stream)
-                    response = put_item(
-                        client_db, user['username'], user['total'], alarm_sent)
-        else:
-            for user in usercount_list:
-                for item in table_items['Items']:
-                    new_total = int(user['total']) + int(item['total'])
-                    if user['username'] == item['username'] and item['alarm_sent'] == 'false':
-                        if new_total < 12:
-                            put_item(client_db, user['username'], new_total)
-                        else:
-                            send_sns(client_sns, sns_topic, user['username'],
-                                     str(new_total), log_group, log_stream)
-                            put_item(
-                                client_db, user['username'], new_total, alarm_sent)
-                    elif user['username'] == item['username'] and item['alarm_sent'] == 'true':
-                        put_item(
-                            client_db, user['username'], new_total, alarm_sent)
+        for user in usercount_list:
+            response = query_handler.query_table(user['username'])
+            if not response:
+                add_to_dynamo(
+                    query_handler, query, user,
+                    int(user['total']), query_handler.threshold,
+                    sns_topic
+                )
+            elif response:
+                dynamo_user = response[0]
+                new_total = int(user['total']) + int(dynamo_user['total'])
+                add_to_dynamo(
+                    query_handler, query, dynamo_user,
+                    new_total, query_handler.threshold,
+                    sns_topic
+                )
+
     except Exception as err:
-        print(f"Error adding item to DynamoDB: {err}")
+        logger.error(f"Error adding item to DynamoDB: {err}")
         return {
             "statusCode": 500,
             "error": f"Error adding item to DynamoDB: {err}"
         }
+
+
+def main(event, context):
+    sns_topic = os.environ['SNS_TOPIC']
+
+    with open('utils/personal.json', 'r') as f:
+        data = json.load(f)
+
+    for queries in data.values():
+        try:
+            for i in range(len(queries)):
+                query = queries[i]
+                query_handler = QueryHandler(
+                    query['query'], query['threshold'],
+                    query['logGroup'], query['logStream']
+                )
+                query_to_stream(query_handler, query, sns_topic)
+
+        except Exception as err:
+            logger.error(f"Error adding item to DynamoDB: {err}")
+            return {
+                "statusCode": 500,
+                "error": f"Error adding item to DynamoDB: {err}"
+            }

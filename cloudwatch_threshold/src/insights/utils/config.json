@@ -1,0 +1,60 @@
+{
+    "LogGroups": [
+        {
+            "prod-idi-api": [
+                {
+                    "logGroup": "prod-idi-api",
+                    "logStream": "koi-http",
+                    "query": "",
+                    "threshold": ""
+                },
+                {
+                    "logGroup": "prod-idi-api",
+                    "logStream": "koi-http",
+                    "query": "",
+                    "threshold": ""
+                },
+                {
+                    "logGroup": "prod-idi-api",
+                    "logStream": "koi-http",
+                    "query": "",
+                    "threshold": ""
+                },
+                {
+                    "logGroup": "prod-idi-api",
+                    "logStream": "koi-http",
+                    "query": "",
+                    "threshold": ""
+                }
+            ]
+        },
+        {
+            "prod-idi-online": [
+                {
+                    "logGroup": "prod-idi-online",
+                    "logStream": "koi-http",
+                    "query": "",
+                    "threshold": ""
+                },
+                {
+                    "logGroup": "prod-idi-online",
+                    "logStream": "koi-http",
+                    "query": "",
+                    "threshold": ""
+                },
+                {
+                    "logGroup": "prod-idi-online",
+                    "logStream": "koi-http",
+                    "query": "",
+                    "threshold": ""
+                },
+                {
+                    "logGroup": "prod-idi-online",
+                    "logStream": "adminweb-http",
+                    "query": "",
+                    "threshold": ""
+                }
+            ]
+        }
+    ]
+}
