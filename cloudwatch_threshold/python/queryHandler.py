@@ -11,11 +11,12 @@ logger.setLevel(logging.DEBUG)
 
 class QueryHandler(object):
 
-    def __init__(self, query, threshold, log_group, log_stream):
-        self._threshold = threshold
+    def __init__(self, query, query_name, threshold, log_group, log_stream):
         self._query = query
+        self._threshold = threshold
         self._log_group = log_group
         self._log_stream = log_stream
+        self._query_name = query_name
         self._client_logs = boto3.client('logs')
         self._client_db = boto3.resource('dynamodb')
         self._client_sns = boto3.client('sns')
@@ -26,6 +27,10 @@ class QueryHandler(object):
     @property
     def query(self):
         return self._query
+
+    @property
+    def query_name(self):
+        return self._query_name
 
     @property
     def log_group(self):

@@ -173,6 +173,26 @@ Resources:
                   - dynamodb:DeleteItem
                 Resource: !GetAtt DynamoTable.Arn
   # # # # # # # # LAMBDA ITEMS # # # # # # # #
+  # LAYERS
+  ClassLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: QueryHandlerLayer
+      Description: Layer that contains the class for the insights query
+      ContentUri: python/
+      CompatibleRuntimes:
+        - python3.8
+      LicenseInfo: ""
+      RetentionPolicy: Retain
+    Metadata:
+      BuildMethod: python3.8
+  # LAYER PERMISSIONS
+  ClassLayerPermission:
+    Type: AWS::Lambda::LayerVersionPermission
+    Properties:
+      Action: lambda:GetLayerVersion
+      LayerVersionArn: !Ref ClassLayer
+      Principal: !Ref AWS::AccountId
   # FUNCTIONS
   LoggingLambda:
     Type: AWS::Serverless::Function
@@ -189,6 +209,8 @@ Resources:
       FunctionName: InsightQuery_Lambda
       Handler: insights.main
       Timeout: 60
+      Layers:
+        - Ref: ClassLayer
       Role: !GetAtt InsightQueryLambdaRole.Arn
       Environment:
         Variables:
@@ -222,5 +244,5 @@ Resources:
         - AttributeName: query_name
           KeyType: RANGE
       ProvisionedThroughput:
-        ReadCapacityUnits: 5
-        WriteCapacityUnits: 5
+        ReadCapacityUnits: 10
+        WriteCapacityUnits: 10
