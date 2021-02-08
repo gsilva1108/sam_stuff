@@ -52,13 +52,13 @@ class QueryHandler(object):
     def client_db(self):  # Getter for dynamo client
         return self._client_db
 
-    def get_message(self, query_name, username, total, threshold, alarm_sent=False):
+    def get_message(self, query_name, username, total, threshold, alert_sent=False):
         message = {
             "query_name": query_name,
             "username": username,
             "total": total,
             "threshold": threshold,
-            "alarm_sent": alarm_sent
+            "alert_sent": alert_sent
         }
         return message
 

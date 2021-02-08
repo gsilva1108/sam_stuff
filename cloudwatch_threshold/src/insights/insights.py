@@ -31,10 +31,10 @@ def add_to_dynamo(query_handler, query_name, user, total, threshold, sns_topic):
         query_handler.put_item(message)
     else:
         try:
-            message['alarm_sent'] = True
-            if user['alarm_sent']:
+            message['alert_sent'] = True
+            if user['alert_sent']:
                 query_handler.put_item(message)
-            elif not user['alarm_sent']:
+            elif not user['alert_sent']:
                 query_handler.send_sns(
                     sns_topic, user['username'],
                     total, query_handler.log_group,
