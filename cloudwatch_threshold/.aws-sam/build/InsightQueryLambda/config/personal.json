@@ -1,0 +1,34 @@
+{
+    "LogGroupForLambda1": [
+        {
+            "logGroup": "LogGroupForLambda1",
+            "logStream": "LogStreamForLambda",
+            "query_name": "LogGroup1_User_Over_12",
+            "query": "fields @timestamp, @message | filter @logStream = 'LogStreamForLambda' | stats count(*) as total by username | sort total desc",
+            "threshold": 12
+        },
+        {
+            "logGroup": "LogGroupForLambda1",
+            "logStream": "LogStreamForLambda",
+            "query_name": "gsilva_over_6",
+            "query": "fields @timestamp, @message | filter @logStream = 'LogStreamForLambda' and username like 'gsilva' | stats count(*) as total by username | sort total desc",
+            "threshold": 6
+        }
+    ],
+    "LogGroupForLambda2": [
+        {
+            "logGroup": "LogGroupForLambda2",
+            "logStream": "LogStreamForLambda",
+            "query_name": "LogGroup2_User_Over_10",
+            "query": "fields @timestamp, @message | filter @logStream = 'LogStreamForLambda' | stats count(*) as total by username | sort total desc",
+            "threshold": 10
+        },
+        {
+            "logGroup": "LogGroupForLambda2",
+            "logStream": "LogStreamForLambda",
+            "query_name": "epuerta_over_5",
+            "query": "fields @timestamp, @message | filter @logStream = 'LogStreamForLambda' and username like 'epuerta' | stats count(*) as total by username | sort total desc",
+            "threshold": 5
+        }
+    ]
+}
