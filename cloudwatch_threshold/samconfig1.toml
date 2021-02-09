@@ -1,0 +1,76 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "billing-config-zero-default"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_NAMED_IAM"
+TestingParams = "this is overrriding"
+
+
+[devops]
+[devops.deploy]
+[devops.deploy.parameters]
+stack_name = "billing-config-zero-devops"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-152ac86dixwxe"
+region = "us-east-1"
+confirm_changeset = false
+capabilities = "CAPABILITY_NAMED_IAM"
+parameter_overrides = [
+    "env=devops",
+    "SecretsManagerLocation=location/to/secret",
+    "EventRuleName=placeholder",
+    "SecurityGroupParams=placeholder-delete-if-not-needed",
+    "SubnetIdsParams=placeholder-delete-if-not-needed"
+]
+
+[qa]
+[qa.deploy]
+[qa.deploy.parameters]
+stack_name = "billing-config-zero-qa"
+s3_bucket = "rdvt-qa-sam-deployments"
+region = "us-east-1"
+confirm_changeset = false
+capabilities = "CAPABILITY_NAMED_IAM"
+parameter_overrides = [
+    "env=qa",
+    "SecretsManagerLocation=location/to/secret",
+    "EventRuleName=placeholder",
+    "SecurityGroupParams=placeholder-delete-if-not-needed",
+    "SubnetIdsParams=placeholder-delete-if-not-needed"
+]
+
+[stage]
+[stage.deploy]
+[stage.deploy.parameters]
+stack_name = "billing-config-zero-stage"
+s3_bucket = "rdvt-prod-sam-deployments"
+region = "us-east-1"
+confirm_changeset = false
+capabilities = "CAPABILITY_NAMED_IAM"
+parameter_overrides = [
+    "env=stage",
+    "SecretsManagerLocation=location/to/secret",
+    "EventRuleName=placeholder",
+    "SecurityGroupParams=placeholder-delete-if-not-needed",
+    "SubnetIdsParams=placeholder-delete-if-not-needed"
+]
+
+
+[prod]
+[prod.deploy]
+[prod.deploy.parameters]
+stack_name = "billing-config-zero-prod"
+s3_bucket = "rdvt-prod-sam-deployments"
+region = "us-east-1"
+confirm_changeset = false
+capabilities = "CAPABILITY_NAMED_IAM"
+parameter_overrides = [
+    "env=prod",
+    "SecretsManagerLocation=prod/billing/database",
+    "SecretsManagerLocation=location/to/secret",
+    "EventRuleName=placeholder",
+    "SecurityGroupParams=placeholder-delete-if-not-needed",
+    "SubnetIdsParams=placeholder-delete-if-not-needed"
+]

@@ -1,0 +1,26 @@
+pipeline {
+    agent {label 'id-info-slave'}
+    stages {
+        stage('testing'){
+            steps {
+                echo 'Would be running automated tests here'
+            }
+        }
+        stage('deploy'){
+            agent { label 'qadev'}
+            steps {
+                dir('billing-zero-config-report'){
+                    sh 'make qa'
+                }
+            }
+        }
+        stage('cleanup'){
+            agent {label 'qadev'}
+            steps {
+                dir('billing-zero-config-report'){
+                    sh 'make clean'
+                }
+            }
+        }
+    }
+}
